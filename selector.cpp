@@ -5,36 +5,41 @@
 #include <opencv2/highgui/highgui.hpp>
 
 cv::Mat frame, img1;
-int drag = 0;
-//CvCapture *capture = 0;
 int key = 0;
 
-void mouseHandler(int event, int x, int y, int flags, void* param)
-{
+void mouseHandler(int event, int x, int y, int flags, void* param) {
     static cv::Point point;
+    static bool drag = false;
     /* user press left button */
     if (event == CV_EVENT_LBUTTONDOWN && !drag) {
         point = cv::Point(x, y);
+        std::cout << "Clicked at: " << point << '\n';
         drag = 1;
     }
     /* user drag the mouse */
     else if (event == CV_EVENT_MOUSEMOVE && drag) {
         img1 = frame.clone();
+        auto mousePoint = cv::Point(x, y);
         // Draws a rectangle
-        cv::rectangle(img1, point, cv::Point(x, y), CV_RGB(255, 0, 0));
+        cv::rectangle(img1, point, mousePoint, CV_RGB(255, 0, 0));
 
-        imshow("result", img1);
+        std::cout << "Moved at: " << mousePoint << '\n';
+
+        cv::imshow("result", img1);
     }
     /* user release left button */
     else if (event == CV_EVENT_LBUTTONUP && drag) {
         img1 = frame.clone();
 
-        auto roi = img1(cv::Range(point.x, point.y), cv::Range(x - point.x, y - point.y));
+        auto mousePoint = cv::Point(x, y);
+        std::cout << "Released at: " << mousePoint << '\n';
+        std::cout << "Range is from " << point << " to " << mousePoint << '\n';
+
+        auto roi = img1(cv::Range(point.y, mousePoint.y), cv::Range(point.x, mousePoint.x));
         // Perform actual work
         bitwise_not(roi, roi);
 
         imshow("result", img1);
-
         drag = 0;
     }
     /* user click right button: reset all */
@@ -55,11 +60,11 @@ int main(int argc, char *argv[]) {
     cv::namedWindow( "result", CV_WINDOW_AUTOSIZE );
     cv::setMouseCallback("result", mouseHandler, NULL);
 
-    while( key != 'q' ) {
-        //frame = cvQueryFrame( capture );
-        cv::imshow("result", frame);
+    cv::imshow("result", frame);
+
+    while( key != 'q' )
         key = cv::waitKey( 1 );
-    }
+
     cv::destroyWindow("result");
     return 0;
 }
