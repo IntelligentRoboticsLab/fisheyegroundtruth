@@ -35,6 +35,9 @@ void mouseHandler(int event, int x, int y, int flags, void* param) {
         std::cout << "Released at: " << mousePoint << '\n';
         std::cout << "Range is from " << point << " to " << mousePoint << '\n';
 
+        if ( point.x > mousePoint.x ) std::swap(point.x, mousePoint.x);
+        if ( point.y > mousePoint.y ) std::swap(point.y, mousePoint.y);
+
         auto roi = img1(cv::Range(point.y, mousePoint.y), cv::Range(point.x, mousePoint.x));
         // Perform actual work
         bitwise_not(roi, roi);
