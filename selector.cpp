@@ -3,9 +3,26 @@
 #include <string>
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#define CV_HSV( h, s, v ) cvScalar( (h), (s), (v) )
 
 cv::Mat frame, img1;
 int key = 0;
+
+int h_max=0;
+int h_min=0;
+int s_min=0;
+int s_max=0;
+
+void handleTrackbar(int, void*){
+    img1 = frame.clone();
+    cv::cvtColor(img1, img1, CV_BGR2HSV);
+    cv::Mat imgResult;
+    cv::Scalar min_color = CV_HSV(h_min, s_min, 0);
+    cv::Scalar max_color = CV_HSV(h_max, s_max, 256);
+    cv::inRange(img1, min_color, max_color, imgResult);
+    cv::cvtColor( imgResult, imgResult, CV_GRAY2RGB);
+    imshow("result", imgResult);
+}
 
 void mouseHandler(int event, int x, int y, int flags, void* param) {
     static cv::Point point;
@@ -112,10 +129,15 @@ int main(int argc, char *argv[]) {
     frame = cv::imread(argv[1]);
 
     /* create a window for the video */
-    cv::namedWindow( "result", CV_WINDOW_AUTOSIZE );
+    std::string window = "result";
+    cv::namedWindow( window, CV_WINDOW_AUTOSIZE );
+    cv::createTrackbar( "hmin:", window, &h_min, 256, handleTrackbar );
+    cv::createTrackbar( "hmax:", window, &h_max, 256, handleTrackbar );
+    cv::createTrackbar( "smin:", window, &s_min, 256, handleTrackbar );
+    cv::createTrackbar( "smax:", window, &s_max, 256, handleTrackbar );
     cv::setMouseCallback("result", mouseHandler, NULL);
 
-    cv::imshow("result", frame);
+    cv::imshow(window, frame);
 
     while( key != 'q' )
         key = cv::waitKey( 1 );
