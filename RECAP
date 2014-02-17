@@ -1,0 +1,10 @@
+We are trying to correctly undistort the fisheye field.
+To do this we need to:
+    1) Find the field
+    2) Extract some type of feature from the distorted image that we can then map back into some ideal image
+    3) Undistort
+
+1) We are doing 1 using a bunch of techniques. We let the user select an histogram and find all pixels that match it, then we try to filter in other pixels with that.
+   Last trick was to blur the original image to eliminate artifacts.
+
+2) We want to do this, and also 1, using many images extracted from different parts of the video, so that we can only select features that appear in most frames, as to avoid selecting corners due to robots or people.
