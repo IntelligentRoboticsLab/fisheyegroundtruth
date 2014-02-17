@@ -1,2 +1,4 @@
 - Possibly blur the selected histogram?? (very little)
 - MORE FRAMES FROM VIDEO TO WORK ON ALL OF THEM AND bitwise_and RESULTS FOR PERFECT ACCURACY
+- Try to extract an histogram with a single click (thresholds?)
+- Maybe after HSV convert the image to black and white, then blur and do stuff?
