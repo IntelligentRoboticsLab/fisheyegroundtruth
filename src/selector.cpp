@@ -5,14 +5,14 @@
 #include <opencv2/highgui/highgui.hpp>
 
 #include <HSVFilter.hpp>
+#include <Utils.hpp>
 
-cv::Mat image, flatImage, globalHist;
+cv::Mat image, flatImage, superFlatImage, globalHist;
+cv::Rect bbox;
 bool t = false;
 int key = 0;
 
 HSVFilter filter;
-
-
 
 void onClick(cv::Point start) {
     //  std::cout << "Clicked at: " << start << '\n';
@@ -24,12 +24,6 @@ void onDrag(cv::Point start, cv::Point current) {
     cv::rectangle(clone, start, current, CV_RGB(255, 0, 0));
     //  std::cout << "Moved at: " << current << '\n';
     cv::imshow("result", clone);
-}
-
-bool inHistogram(const cv::Mat & hist, const int histSize[], const float* ranges[], const cv::Vec3b & pixel) {
-    if ( hist.at<float>( ( pixel[0] * histSize[0] ) / ranges[0][1], ( pixel[1] * histSize[1] ) / ranges[1][1] ) != 0 )
-        return true;
-    return false;
 }
 
 void tuneHist(cv::Mat & pic, const cv::Mat & roi) {
@@ -48,6 +42,9 @@ void tuneHist(cv::Mat & pic, const cv::Mat & roi) {
             true, // the histogram is uniform
             false );
 
+    cv::Size kernel(2,2);
+    cv::blur(hist, hist, kernel);
+
     if ( t )  globalHist += hist;
     else { globalHist = hist; t = true; }
 
@@ -55,50 +52,26 @@ void tuneHist(cv::Mat & pic, const cv::Mat & roi) {
         for ( int j = 0; j < pic.cols; ++j )
             if ( !inHistogram(globalHist, histSize, ranges, pic.at<cv::Vec3b>(i,j)) ) 
                 pic.at<cv::Vec3b>(i,j) = {0,0,0};
-
-    imshow("hist", pic);
 }
 
-void onRelease(cv::Point start, cv::Point current) {
+void onRelease(cv::Point start, cv::Point current, const cv::Mat & base, std::string frame) {
     if ( start.x > current.x ) std::swap(start.x, current.x);
     if ( start.y > current.y ) std::swap(start.y, current.y);
 
-    auto clone = image.clone();
+    auto clone = base.clone();
 
     // Image selected
     auto roi = clone(cv::Range(start.y, current.y), cv::Range(start.x, current.x));
 
     tuneHist(clone, roi);
 
-    // Use histograms
-    int hbins = 30, sbins = 32;
-    int histSize[] = {hbins, sbins};
-    float hranges[] = { 0, 180 };
-    float sranges[] = { 0, 256 };
-    const float* ranges[] = { hranges, sranges };
-    int channels[] = {0, 1};
-
-    cv::Mat hist;
-
-    calcHist( &roi, 1, channels, cv::Mat(), // do not use mask
-            hist, 2, histSize, ranges,
-            true, // the histogram is uniform
-            false );
-
-    if ( t )  globalHist += hist;
-    else { globalHist = hist; t = true; }
-
-    for ( int i = 0; i < clone.rows; ++i )
-        for ( int j = 0; j < clone.cols; ++j )
-            if ( !inHistogram(globalHist, histSize, ranges, clone.at<cv::Vec3b>(i,j)) )
-                clone.at<cv::Vec3b>(i,j) = {0,0,0};
-
     cv::cvtColor(clone, clone, CV_HSV2BGR);
     cv::rectangle(clone, start, current, CV_RGB(255, 0, 0));
 
-    // tuneParameters(clone);
+    if ( frame == "flat" )
+        bbox = getCropRect(clone);
 
-    imshow("result", clone);
+    imshow(frame, clone(bbox));
 }
 
 void mouseHandler(int event, int x, int y, int flags, void* param) {
@@ -120,7 +93,10 @@ void mouseHandler(int event, int x, int y, int flags, void* param) {
     }
     /* user release left button */
     else if (event == CV_EVENT_LBUTTONUP && drag) {
-        onRelease(start, mouse);
+        cv::namedWindow("flat", CV_WINDOW_AUTOSIZE );
+        cv::namedWindow("superflat", CV_WINDOW_AUTOSIZE );
+        onRelease(start, mouse, flatImage, "flat");
+        onRelease(start, mouse, superFlatImage, "superflat");
 
         drag = false;
     }
@@ -135,8 +111,6 @@ void mouseHandler(int event, int x, int y, int flags, void* param) {
     }
 }
 
-void handleTrackbar(int, void*);
-
 int main(int argc, char *argv[]) {
     if ( argc < 2 ) {
         std::cout << "Usage: " << argv[0] << " image_file_name\n";
@@ -144,36 +118,27 @@ int main(int argc, char *argv[]) {
     }
     image = cv::imread(argv[1]);
 
-    flatImage = convertToFullValuedHSV(image);
-    flatImage = convertToFullValuedHSV(flatImage);
+    flatImage = image.clone();
+
+    superFlatImage = RGBToFullValuedHSV(image);
+//    superFlatImage = RGBToFullValuedHSV(superFlatImage);
+
     cv::Size kernel(8,8);
     cv::blur(flatImage, flatImage, kernel);
-    flatImage = convertToFullValuedHSV(flatImage);
+    cv::blur(superFlatImage, superFlatImage, kernel);
+
+    flatImage = RGBToFullValuedHSV(flatImage);
+    superFlatImage = RGBToFullValuedHSV(superFlatImage);
 
     /* create a window for the video */
     cv::namedWindow("result", CV_WINDOW_AUTOSIZE );
-    cv::namedWindow("hist", CV_WINDOW_AUTOSIZE );
-    //cv::namedWindow("filter", CV_WINDOW_AUTOSIZE );
 
-#if 0
-    cv::createTrackbar( "hmin:", window, &h_min, 180, handleTrackbar );
-    cv::createTrackbar( "hmax:", window, &h_max, 180, handleTrackbar );
-    cv::createTrackbar( "smin:", window, &s_min, 256, handleTrackbar );
-    cv::createTrackbar( "smax:", window, &s_max, 256, handleTrackbar );
-#endif
     cv::setMouseCallback("result", mouseHandler, NULL);
     cv::imshow("result", image);
 
-    while( key != 'q' )
+    while( key != 'q' && key != 27 /* ESC */ )
         key = cv::waitKey( 1 );
 
     cv::destroyWindow("result");
     return 0;
 }
-
-void handleTrackbar(int, void*){
-    auto clone = convertToFullValuedHSV(image);
-    cv::Mat imgResult = filter(clone);
-    imshow("result", imgResult);
-}
-

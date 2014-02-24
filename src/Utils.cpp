@@ -19,7 +19,24 @@ cv::Mat RGBToFullValuedHSV(const cv::Mat &image){
     return result;
 }
 
-cv::Mat crop(const cv::Mat & img) {
+cv::Rect getCropRect(const cv::Mat & img) {
     auto cropped = img.clone();
-    return cropped;
+    cv::cvtColor(cropped, cropped, CV_RGB2GRAY);
+    cv::threshold(cropped, cropped, 1, 255, cv::THRESH_BINARY);
+
+    std::vector<std::vector<cv::Point>> contour;
+    cv::findContours(cropped, contour, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
+
+    std::vector<cv::Point> result;
+    for ( auto & v : contour )
+        result.insert(result.end(), v.begin(), v.end());
+
+    return cv::boundingRect(result);
 }
+
+bool inHistogram(const cv::Mat & hist, const int histSize[], const float* ranges[], const cv::Vec3b & pixel) {
+    if ( hist.at<float>( ( pixel[0] * histSize[0] ) / ranges[0][1], ( pixel[1] * histSize[1] ) / ranges[1][1] ) != 0 )
+        return true;
+    return false;
+}
+
